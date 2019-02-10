@@ -257,7 +257,10 @@ function iframe2embed($content){
 }
 
 
-function nextgen2gallery($content){
+
+
+
+function nextgen2gallery_XXX($content){
 	//[multipic ids="39, 40, 41, 42, 43"]
 	//[singlepic id=857]
 
@@ -293,6 +296,41 @@ function nextgen2gallery($content){
 }
 
 
+
+
+
+
+function singlepic_shortcode( $atts ) {
+	if( empty($atts['id']) )
+		return '';
+	else {
+		$id = $atts['id'];	
+		return '[gallery ids="'. $id .'"]';
+	}
+}
+
+function multipic_shortcode( $atts ) {
+	if( empty($atts['ids']) )
+		return '';
+	else
+		$ids = $atts['ids'];
+
+		return '[gallery ids="'. $ids .'"]';
+}
+
+	
+
+function nextgen2gallery($content){
+	//[multipic ids="39, 40, 41, 42, 43"]
+	//[singlepic id=857]
+
+	add_shortcode( 'singlepic', 'singlepic_shortcode' );
+	add_shortcode( 'multipic', 'multipic_shortcode' );
+	return do_shortcode( $content );
+}
+
+
+
 function copyPost(){
 	// WP loaded database
 	// $posts = get_posts();
@@ -316,13 +354,14 @@ function copyPost(){
 	        	printf ("%s _ %s <br>", $id, $title);
         		
         		// $content = '<br><br>23<iframe src="//player.vimeo.com/video/001599821?color=fa4c07" frameborder="0"></iframe>45<br>46<iframe src="//player.vimeo.com/video/002599821?color=fa4c07" frameborder="0"></iframe>67<br>18<iframe src="//player.vimeo.com/video/003599821?color=fa4c07" frameborder="0"></iframe>99<br>11<iframe width="800" height="485" src="http://www.youtube.com/embed/Oyx1D9j1O8g?rel=0" frameborder="0" allowfullscreen></iframe>00<br>99aa <iframe src="//player.vimeo.com/video/003599821?color=fa4c07" frameborder="0"></iframe> dsad <br>dsah sda<br> dsadad as<iframe width="800" height="485" src="http://www.youtube.com/embed/Oyx1D9j1O8g?rel=0" frameborder="0" allowfullscreen></iframe>dsad' ;
-        		$content = 'aaa[multipic ids="39, 40, 41, 42, 43"]bbb[multipic ids="1, 2, 3"]sa<br>[multipic ids="5, 8, 9"]<br>[singlepic id=857]';
+        		// $content = 'aaa[multipic ids="39, 40, 41, 42, 43"]bbb[multipic ids="1, 2, 3"]sa<br>[multipic ids="5, 8, 9"]<br>[singlepic id=857] ---- [singlepic]';
 
 				echo "<br><br>__before__<br><br>";
 				echo $content;
 				echo "<br><br>__after__<br><br>";
+				
 				$content = nextgen2gallery($content);
-				// $content = iframe2embed($content);
+				$content = iframe2embed($content);
 				echo $content;
 			    echo ("<br><br>...PostEnd...<br><br>");
         	}
@@ -357,10 +396,14 @@ function createPost(){
 
 
 
+
 function migration(){
 	echo "Start<br>";
 
 
+
+	// global $shortcode_tags;
+	// print_r($shortcode_tags);
 
 
 	// $imageLog = importImages();
@@ -386,6 +429,7 @@ function migration(){
 	}
 	echo "<br>-----------------<br>";
 */
+
 
     echo "<p>DONE</p>";
 }

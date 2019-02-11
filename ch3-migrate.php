@@ -106,37 +106,37 @@ function importImages(){
 
 
 		// REPLACE with plugin function
-/*
-		// The ID of the post this attachment is for.
-		$parent_post_id = -1;
-		// Check the type of file. We'll use this as the 'post_mime_type'.
-		$filetype = wp_check_filetype( basename( $image ), null );
-		// Get the path to the upload directory.
-		$wp_upload_dir = wp_upload_dir();
-		// Prepare an array of post data for the attachment.
-		$attachment = array(
-			'guid'           => $wp_upload_dir['url'] . '/' . basename( $image ), 
-			'post_mime_type' => $filetype['type'],
-			'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $image ) ),
-			'post_content'   => '',
-			'post_status'    => 'inherit'
-		);
 
-		// Insert the attachment.
-		$attach_id = wp_insert_attachment( $attachment, $image, $parent_post_id );
-		// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
-		require_once( ABSPATH . 'wp-admin/includes/image.php' );
-		// Generate the metadata for the attachment, and update the database record.
-		$attach_data = wp_generate_attachment_metadata( $attach_id, $image );
-		wp_update_attachment_metadata( $attach_id, $attach_data );
+		// // The ID of the post this attachment is for.
+		// $parent_post_id = -1;
+		// // Check the type of file. We'll use this as the 'post_mime_type'.
+		// $filetype = wp_check_filetype( basename( $image ), null );
+		// // Get the path to the upload directory.
+		// $wp_upload_dir = wp_upload_dir();
+		// // Prepare an array of post data for the attachment.
+		// $attachment = array(
+		// 	'guid'           => $wp_upload_dir['url'] . '/' . basename( $image ), 
+		// 	'post_mime_type' => $filetype['type'],
+		// 	'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $image ) ),
+		// 	'post_content'   => '',
+		// 	'post_status'    => 'inherit'
+		// );
 
-		set_post_thumbnail( $parent_post_id, $attach_id );
+		// // Insert the attachment.
+		// $attach_id = wp_insert_attachment( $attachment, $image, $parent_post_id );
+		// // Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
+		// require_once( ABSPATH . 'wp-admin/includes/image.php' );
+		// // Generate the metadata for the attachment, and update the database record.
+		// $attach_data = wp_generate_attachment_metadata( $attach_id, $image );
+		// wp_update_attachment_metadata( $attach_id, $attach_data );
 
-		echo '<br>' . $attach_id;
-		// print_r($attach_data);
+		// set_post_thumbnail( $parent_post_id, $attach_id );
 
-		$imgEntry['id1'] = $attach_id;
-*/
+		// echo '<br>' . $attach_id;
+		// // print_r($attach_data);
+
+		// $imgEntry['id1'] = $attach_id;
+
 		array_push($imageLog, $imgEntry);
 	}
 	echo "<br>--------------<br>";
@@ -145,7 +145,7 @@ function importImages(){
 
 
 
-function connectToSQL(){
+function connectToOldSQL(){
 	$servername = "localhost";
 	$username = "georgios";
 	$password = "123";
@@ -163,7 +163,7 @@ function connectToSQL(){
 
 function getImageIDs($imageLog){
 	echo "<br><br> <b>getImageIDs<b> <br>--------------<br>";
-	$conn = connectToSQL();
+	$conn = connectToOldSQL();
 
 	//foreach( $imageLog as $imageEntry ){
 	for( $i=0; $i<count($imageLog); $i++ ){
@@ -192,36 +192,6 @@ function getImageIDs($imageLog){
 }
 
 
-function getTextBetweenTags($string, $tagname) {
-    $pattern = "/<$tagname ?.*>(.*)<\/$tagname>/";
-    preg_match($pattern, $string, $matches);
-    return $matches;
-}
-
-
-
-
-function iframe2embed_XXX($content){
-	//<iframe src="//player.vimeo.com/video/251599821?color=fa4c07" frameborder="0"></iframe>
-	//<iframe width="800" height="485" src="http://www.youtube.com/embed/Oyx1D9j1O8g?rel=0" frameborder="0" allowfullscreen></iframe>
-
-	$out = '';
-	// echo $content;
-
-	$iframes = extract_tags( $content, 'iframe' );
-	print_r($iframes);
-	foreach($iframes as $iframe){
-
-		if( strpos($iframe['attributes']['src'], 'vimeo') == true ){
-			$out .= '[vimeo]';
-		}
-		else if( strpos($iframe['attributes']['src'], 'youtube') == true ){
-			$out .= '[youtube]';
-		}
-	    // echo $iframe['attributes']['src'] , '<br>';
-	}
-	return $out;
-}
 
 
 
@@ -260,40 +230,88 @@ function iframe2embed($content){
 
 
 
-function nextgen2gallery_XXX($content){
-	//[multipic ids="39, 40, 41, 42, 43"]
-	//[singlepic id=857]
 
-	$tag0 = '[';
-	$tag1 = ']';
-	if( strpos($content, $tag0) == false )
-		return $content;
 
-	$s0 = explode($tag0, $content );
-	$out .= $s0[0];
-	for($i=1; $i<sizeof($s0); ++$i){
-		$text = '['.$s0[$i];
-		$shortCodes = Parser::parse_shortcodes($text);
-		$out .= $text;
-		// $out .= "<___".sizeof($shortCodes)."__>";
-		// for($i=0; $i<sizeof($shortCodes); $i++){
-		// 	echo( $shortCodes[$i] );
-		// }
 
-		// $s1 = explode($tag1, $s0[$i] );
-		// $tag = $s1[0];
-		// if( strpos($tag, 'embed') == true ){
-		// 	$out .= $tag0;
-		// 	$out .= $tag;
-		// 	$out .= $tag1;
-		// }
 
-		// Add sub content
-		// $out .= $s1[1];
-		
-	}
-	return $out;	
+
+
+
+
+
+
+
+
+
+function importImage( $file ){
+	// take a copy of the file
+	$dest = WP_CONTENT_DIR . '/uploads/' . basename( $file );
+	copy( $file, $dest );
+	$file = $dest;
+
+	// $filename should be the path to a file in the upload directory.
+	$parent_post_id = -1;
+	$filetype = wp_check_filetype( basename( $file ), null );
+	$wp_upload_dir = wp_upload_dir();
+
+	$attachment = array(
+		'guid'           => $wp_upload_dir['url'] . '/' . basename( $file ), 
+		'post_mime_type' => $filetype['type'],
+		'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $file ) ),
+		'post_content'   => '',
+		'post_status'    => 'inherit'
+	);
+
+	// $attach_id = wp_insert_attachment( $attachment, $file, $parent_post_id );
+	$attach_id = wp_insert_attachment( $attachment, $file );
+	// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
+	require_once( ABSPATH . 'wp-admin/includes/image.php' );
+	$attach_data = wp_generate_attachment_metadata( $attach_id, $file );
+	wp_update_attachment_metadata( $attach_id, $attach_data );
+	set_post_thumbnail( $parent_post_id, $attach_id );
+
+	echo '++  Import Image id:'.$attach_id.' added to WP__' .$file. '  ++<br>';
+	// print_r($attach_data);
+	return $attach_id;
+
 }
+
+
+
+
+
+function importNextgenPic( $id ){
+
+	// Get image info from nextGen
+	$conn = connectToOldSQL();
+	$sql = "SELECT * FROM word_ngg_pictures WHERE(pid LIKE '".$id."')";
+	$result = $conn->query($sql);
+	$path = 'D:/myStuff/ch3/web/v2.ch3.gr/file/';
+	$newId = -1;
+	if ($result->num_rows > 0) {
+	    $row = $result->fetch_assoc();
+	    $file = $row["filename"];
+	    $postId = $row["post_id"];
+	    $galleryId = $row["galleryid"];
+	    if( $galleryId == 1 )
+	    	$file = $path . 'photo/'. $file;
+	    else if( $galleryId == 2 )
+	    	$file = $path . 'image/'. $file;
+		else if( $galleryId == 3 )
+	    	$file = $path . 'test/'. $file;
+
+        // echo "pid: " . $row["pid"]. " - filename: " . $file. " _______ Post ID :". $postId . " # ". $galleryId ."<br>";
+	    $newId = importImage($file);
+	}
+	$conn->close();
+	return $newId;
+}
+
+
+
+
+
+
 
 
 
@@ -304,8 +322,9 @@ function singlepic_shortcode( $atts ) {
 	if( empty($atts['id']) )
 		return '';
 	else {
-		$id = $atts['id'];	
-		return '[gallery ids="'. $id .'"]';
+		$id = $atts['id'];
+		$newId = importNextgenPic(trim($id));
+		return '[gallery ids="'. $newId .'"]';
 	}
 }
 
@@ -313,9 +332,17 @@ function multipic_shortcode( $atts ) {
 	if( empty($atts['ids']) )
 		return '';
 	else
-		$ids = $atts['ids'];
+		$ids = explode(",", $atts['ids']);
+		$newIds = '';
+		foreach($ids as $id){
+			$newId = importNextgenPic(trim($id));
+			$newIds .= $newId. ',';
+		}
+		$newIds = substr($newIds, 0, -1);
 
-		return '[gallery ids="'. $ids .'"]';
+		return '[gallery ids="'. $newIds .'"]';
+		// return '[gallery ids="'. $atts['ids'] .'"]';
+		//"422, 423, 424
 }
 
 	
@@ -340,32 +367,61 @@ function copyPost(){
 	// }
 	
 	echo "<br><br> <b>copyPosts<b> <br>--------------<br>";
-	$conn = connectToSQL();
+	$conn = connectToOldSQL();
 	$sql = "SELECT * FROM word_posts WHERE(post_type LIKE 'post')";
 	$result = $conn->query($sql);
 	if ($result->num_rows > 0) {
 		$count = 0;
 		while ($row = $result->fetch_assoc()) {
+        	$count ++;
 			// DEBUG
-        	if( false or $row['ID'] == 3268 ){
-				$id = $row['ID'];
-				$title = $row['post_title'];
+			if( $count > 10 )
+				break;
+        	if( true or $row['ID'] == 3268 ){
+        		$newPost = array();
+        		$newPost['post_title'] = $row['post_title'];
+        		$newPost['post_date'] = $row['post_date'];
+        		$newPost['post_status'] = 'publish';
+
+
+				// $id = $row['ID'];
+				// $title = $row['post_title'];
+				// $date = $row['post_date'];
 				$content = $row['post_content'];
-	        	printf ("%s _ %s <br>", $id, $title);
         		
         		// $content = '<br><br>23<iframe src="//player.vimeo.com/video/001599821?color=fa4c07" frameborder="0"></iframe>45<br>46<iframe src="//player.vimeo.com/video/002599821?color=fa4c07" frameborder="0"></iframe>67<br>18<iframe src="//player.vimeo.com/video/003599821?color=fa4c07" frameborder="0"></iframe>99<br>11<iframe width="800" height="485" src="http://www.youtube.com/embed/Oyx1D9j1O8g?rel=0" frameborder="0" allowfullscreen></iframe>00<br>99aa <iframe src="//player.vimeo.com/video/003599821?color=fa4c07" frameborder="0"></iframe> dsad <br>dsah sda<br> dsadad as<iframe width="800" height="485" src="http://www.youtube.com/embed/Oyx1D9j1O8g?rel=0" frameborder="0" allowfullscreen></iframe>dsad' ;
         		// $content = 'aaa[multipic ids="39, 40, 41, 42, 43"]bbb[multipic ids="1, 2, 3"]sa<br>[multipic ids="5, 8, 9"]<br>[singlepic id=857] ---- [singlepic]';
 
-				echo "<br><br>__before__<br><br>";
-				echo $content;
-				echo "<br><br>__after__<br><br>";
-				
+				// echo "<br><br>__before__<br><br>";
+				// echo $content;
+				// echo "<br><br>__after__<br><br>";
+
 				$content = nextgen2gallery($content);
 				$content = iframe2embed($content);
+				$newPost['post_content'] = $content;
+
+				echo ("<br>...Adding Post..<br>");
+				$newPostId = wp_insert_post( $newPost );
+	        	printf ("%s :: %s << %s >> <br>", $newPostId, $newPost['post_date'], $newPost['post_title']);
 				echo $content;
-			    echo ("<br><br>...PostEnd...<br><br>");
+			    echo ("<br>...PostEnd......<br><br>");
+
+			    // Update post_parent to all images
+			    $shortCodes = Parser::parse_shortcodes($content);
+				for($i=0; $i<sizeof($shortCodes); $i++){
+					if( $shortCodes[$i]['name'] == 'gallery'){
+						$idsStr = $shortCodes[$i]['attrs'][0]['ids'] ;
+						$ids = explode(",", $idsStr);
+						foreach($ids as $id){
+							$img_post = array();
+							$img_post['ID'] = $id;
+							$img_post['post_parent'] = $newPostId;
+							wp_update_post( $img_post );
+						}
+					}
+				}
+
         	}
-        	$count ++;
 	    }
 	    printf ("<br><br>Total post count: %s <br>", $count);
 	}
@@ -375,6 +431,7 @@ function copyPost(){
 	$conn->close();
 	echo "<br>--------------<br>";
 }
+
 
 
 function createPost(){
@@ -401,14 +458,14 @@ function migration(){
 	echo "Start<br>";
 
 
-
-	// global $shortcode_tags;
-	// print_r($shortcode_tags);
-
+	global $imageLog;
 
 	// $imageLog = importImages();
 	// $imageLog = getImageIDs($imageLog);
+	
 	copyPost();
+
+
 	// createPost();
 
 	// $text = '123 [embed]youtube[/embed]...[multipic ids="39, 40, 41, 42, 43"] LALAL [singlepic id=857] 789';
@@ -416,9 +473,12 @@ function migration(){
 	// echo "<br><br>";
 	// $shortCodes = Parser::parse_shortcodes($text);
 	// for($i=0; $i<sizeof($shortCodes); $i++){
-	// 	print_r( $shortCodes[$i] );
+	// 	// print_r( $shortCodes[$i] );
+	// 	echo $shortCodes[$i]['attrs'][0]['ids'] . '<br>';
 	// 	echo "<br>";
 	// }
+	// echo '<br>...<br>';
+	// echo( $shortCodes[1]['attrs'][0]['ids'] );
 	
 /*
 	// Print ImageLog
@@ -430,6 +490,18 @@ function migration(){
 	echo "<br>-----------------<br>";
 */
 
+	// echo '_______imgLoaf____<br>';
+	// $img = WP_CONTENT_DIR . '/uploads/sourceImages/ch3_110928_5892.jpg';
+	// importImage($img);
+	
+	// echo $img;
+	// echo '<br>';
+	// print_r( wp_read_image_metadata( $img ) );
+
+	// $img_post = array();
+	// $img_post['ID'] = 135;
+	// $img_post['post_parent'] = 999;
+	// wp_update_post( $img_post );
 
     echo "<p>DONE</p>";
 }
@@ -439,4 +511,6 @@ function migration(){
 
 
 
-?>
+
+
+

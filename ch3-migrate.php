@@ -213,9 +213,27 @@ function importNextgenPic( $id ){
 		else if( $galleryId == 3 )
 	    	$file = $path . 'test/'. $file;
 
+
+	    // Check if the image already exist in the new database to prevent duplicates
+		global $wpdb;
+		$result = $wpdb->get_results( "SELECT * FROM $wpdb->posts WHERE(guid LIKE '%{$row["filename"]}%') " );
+		if( sizeof($result) == 0 ){
+	    	$newId = importImage($file);					// INSERT IMAGE //////////
+		}
+		else{
+			$newId = $result[0]->ID;
+			echo '######### PICTURE '. $row["filename"] .' ALREADY EXISTS - SKIPPING ##############';
+		}
+
+
+
+
         echo "pid: " . $row["pid"]. " - filename: " . $file. " _______ Post ID :". $postId . " # ". $galleryId ."<br>";
-	    // $newId = importImage($file);
+	} else {
+		echo '################# PICTURE '. $id .' WAS NOT FOUND IN NEXTGEN ####################';
 	}
+
+
 	$conn->close();
 	return $newId;
 }
@@ -231,8 +249,15 @@ function importNextgenPic( $id ){
 
 
 
-
-
+function getShortcodeAttr($shortcode, $attr){
+	foreach ($shortcode['attrs'] as $at ){
+		foreach ($at as $key => $value){
+			if( $key == 'ids' )
+				return( $at['ids'] );
+		}
+	}
+	
+}
 
 
 
@@ -241,59 +266,68 @@ function importNextgenPic( $id ){
 
 
 function migration(){
+	echo "<br> <br> <br>--------------<br>";
 	echo "Start<br>";
 	echo "<br> <b>copyPosts<b> <br>--------------<br>";
 
+	global $wpdb;
 	$conn = connectToOldSQL();
-	$sql = "SELECT * FROM word_posts WHERE(post_type LIKE 'post')";
+	$sql = "SELECT * FROM word_posts WHERE(post_type LIKE 'post') ORDER BY ID";
 	$result = $conn->query($sql);
 	if ($result->num_rows > 0) {
 		$count = 0;
 		while ($row = $result->fetch_assoc()) {
-        	$count ++;
 			// DEBUG
-			if( $count > 10 )
+			if( $count >= 2 )
 				break;
-        	if( true or $row['ID'] == 3268 ){
-        		$newPost = array();
-        		$newPost['post_title'] = $row['post_title'];
-        		$newPost['post_date'] = $row['post_date'];
-        		$newPost['post_status'] = 'publish';
-				$content = $row['post_content'];
 
-	        	printf ("%s :: %s << %s >>", $newPostId, $newPost['post_date'], $newPost['post_title']);
+        	$count ++;
+    		$newPost = array();
+    		$newPost['post_title'] = $row['post_title'];
+    		$newPost['post_date'] = $row['post_date'];
+    		$newPost['post_status'] = 'publish';
+			$content = $row['post_content'];
 
-				echo "<br>------------------------<br>";
-				echo "__before__<br>";
-				echo $content;
-				echo "<br><br>__after__<br><br>";
 
-				$content = nextgen2gallery($content);
-				$content = iframe2embed($content);
-				$newPost['post_content'] = $content;
+			echo "<br><br><br><br><br><br>------------------------<br>";
+        	printf ("%s :: %s << %s >>", $row['ID'], $newPost['post_date'], $newPost['post_title']);
+			echo "<br><br>__before__<br>";
+			echo $content;
+			echo "<br><br>__after__<br>";
 
-				echo ("<br>...Adding Post..<br>");
-				// $newPostId = wp_insert_post( $newPost );
-				$newPostId = -1;
-				echo $content;
-			    echo ("<br>...PostEnd......<br><br><br><br><br>");
+			$content = nextgen2gallery($content);
+			$content = iframe2embed($content);
+			$newPost['post_content'] = $content;
 
-			    // Update post_parent to all images
-			    $shortCodes = Parser::parse_shortcodes($content);
-				for($i=0; $i<sizeof($shortCodes); $i++){
-					if( $shortCodes[$i]['name'] == 'gallery'){
-						$idsStr = $shortCodes[$i]['attrs'][0]['ids'] ;
-						$ids = explode(",", $idsStr);
-						foreach($ids as $id){
+			echo ("<br><br><br>...Adding Post..<br>");
+			$newPostId = -1;
+			$newPostId = wp_insert_post( $newPost );			// INSERT POST //////////
+			echo $content;
+		    echo ("<br>...PostEnd......");
+		    echo ("<br><br>...Update post_parent......<br>");
+
+		    // Update post_parent to all images
+		    $shortCodes = Parser::parse_shortcodes($content);
+			for($i=0; $i<sizeof($shortCodes); $i++){
+				if( $shortCodes[$i]['name'] == 'gallery'){
+					// $idsStr = $shortCodes[$i]['attrs'][0]['ids'] ;
+					$idsStr = getShortcodeAttr($shortCodes[$i], 'ids');
+					$ids = explode(",", $idsStr);
+					foreach($ids as $id){
+						// Check if this picture has already been attached
+						$post_parent = $wpdb->get_results( "SELECT post_parent FROM $wpdb->posts WHERE(ID LIKE '{$id}') " )[0]->post_parent;
+						if($post_parent == '0'){
 							$img_post = array();
 							$img_post['ID'] = $id;
 							$img_post['post_parent'] = $newPostId;
 							wp_update_post( $img_post );
+							echo '<br> ... updated photo ID '. $id . ' to have post_parent set to '. $newPostId;
+						} else {
+							echo '<br> ... photo ID '. $id . ' is already attached. SKIPPING ';
 						}
 					}
 				}
-
-        	}
+			}
 	    }
 	    printf ("<br><br>Total post count: %s <br>", $count);
 	}

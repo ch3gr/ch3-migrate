@@ -51,6 +51,7 @@ function connectToOldSQL(){
 	if ($conn->connect_error) {
 	    die("Connection failed: " . $conn->connect_error);
 	}
+	mysqli_set_charset($conn,"utf8");
 	return $conn;
 }
 
@@ -277,20 +278,30 @@ function migration(){
 	$result = $conn->query($sql);
 	if ($result->num_rows > 0) {
 		$count = 0;
-		while ($row = $result->fetch_assoc()) {
-			echo '<br>'.$row['ID'] .'   '.$row['post_title'];
-		}
+		// while ($row = $result->fetch_assoc()) {
+		// 	echo '<br>'.$row['ID'] .'   '.$row['post_title'];
+		// }
 		while ($row = $result->fetch_assoc()) {
 			// DEBUG
-			if( $count >= 0 )	break;
-			// if( $row['post_title'] != 'Truckfighters')	continue;
+			// if( $count >= 0 )	break;
+			if( $row['post_title'] != 'Truckfighters' &&
+				$row['post_title'] != 'alosis')	continue;
 
         	$count ++;
     		$newPost = array();
     		$newPost['post_title'] = $row['post_title'];
     		$newPost['post_date'] = $row['post_date'];
     		$newPost['post_status'] = 'publish';
-			$content = $row['post_content'];
+			
+
+			$content = $row['post_content'] ;
+			$content = str_replace('”','sec',$content);
+			$content = str_replace('\'','min',$content);
+			$newPost['post_content'] = $content;
+
+
+
+			
 
 
 			echo "<br><br><br><br><br><br>".$count."  ------------------------<br>";
@@ -299,11 +310,10 @@ function migration(){
 			echo $content;
 			echo "<br><br>__after__<br>";
 
-			$newPost['post_content'] = $content;
 
 			echo ("<br><br><br>...Adding Post..<br>");
 			$newPostId = -1;
-			global $latestPostId;
+			global $latestPostId;		// Hack for the images to get attached to the post via shortcode bottleneck
 			$newPostId = wp_insert_post( $newPost );			// INSERT POST //////////
 			$latestPostId = $newPostId;
 
@@ -312,47 +322,14 @@ function migration(){
 			$latestPostId = 0;
 			echo $content;
 
-			$newPost['post_content'] = $content;
-			wp_update_post( $newPost );
+			// Update the content of the new post
+			$wpdb->query( $wpdb->prepare( "UPDATE $wpdb->posts SET post_content = %s WHERE ID = %d", $content, $newPostId ) );
 
-/*
-		    echo ("<br>...PostEnd......");
-		    echo ("<br><br>...Update post_parent......<br>");
-		    // Update post_parent to all images
-		    // $content = ' [gallery columns="1" link="none" size="large" ids="3069"] ';
-		    // $c1 = 
-		    $shortCodes = Parser::parse_shortcodes($content);
-		    // echo $content.'<br>';
-		    // echo '<br>=================================<br>';
-		    // echo sizeof($shortCodes) .'<br>';
-		    // echo $newPostId .'<br>';
-		    // print_r( $row);
-
-			for($i=0; $i<sizeof($shortCodes); $i++){
-				if( $shortCodes[$i]['name'] == 'gallery'){
-					// $idsStr = $shortCodes[$i]['attrs'][0]['ids'] ;
-					$idsStr = getShortcodeAttr($shortCodes[$i], 'ids');
-					$ids = explode(",", $idsStr);
-					foreach($ids as $id){
-						// Check if this picture has already been attached
-						$post_parent = $wpdb->get_results( "SELECT post_parent FROM $wpdb->posts WHERE(ID LIKE '{$id}') " )[0]->post_parent;
-						if($post_parent == '0'){
-							$img_post = array();
-							$img_post['ID'] = $id;
-							$img_post['post_parent'] = $newPostId;
-							wp_update_post( $img_post );
-							echo '<br> ... updated photo ID '. $id . ' to have post_parent set to '. $newPostId;
-						} else {
-							echo '<br> ... photo ID '. $id . ' is already attached. SKIPPING ';
-						}
-					}
-				}
-			}
-*/
 	    }
 	    printf ("<br><br>Total post count: %s <br>", $count);
 	}
-	// echo("<br>[embed]https://vimeo.com/10070698[/embed]<br>");
+
+	
 
 	$result->free();
 	$conn->close();
@@ -362,19 +339,7 @@ function migration(){
 
 
 
-function createPost(){
-	// Create post object
-	$my_post = array(
-	  'post_title'    => 'Auto Post',
-	  'post_content'  => 'This post has been generated automaticaly',
-	  'post_status'   => 'publish',
-	  'post_author'   => 1
-	);
-	 
-	// Insert the post into the database
-	// wp_insert_post( $my_post );
-	echo 'Creating post: <b>' . $my_post['post_title'] . '</b>';
-}
+
 
 
 

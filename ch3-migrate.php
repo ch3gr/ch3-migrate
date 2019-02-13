@@ -24,6 +24,7 @@ if ( !defined( 'ABSPATH' ) ) {
 
 include 'extract_tags.php';
 
+ini_set('max_execution_time', 60*60*10);
 
 add_action('admin_menu', 'ch3_migration_menu');
 
@@ -156,14 +157,14 @@ function nextgen2gallery($content){
 
 
 
-function importImage( $file ){
+function importImage( $file, $latestPostId ){
 	// take a copy of the file
 	$dest = WP_CONTENT_DIR . '/uploads/' . basename( $file );
 	copy( $file, $dest );
 	$file = $dest;
 
 	// $filename should be the path to a file in the upload directory.
-	$parent_post_id = -1;
+	$parent_post_id = $latestPostId;
 	$filetype = wp_check_filetype( basename( $file ), null );
 	$wp_upload_dir = wp_upload_dir();
 
@@ -195,6 +196,7 @@ function importImage( $file ){
 
 function importNextgenPic( $id ){
 
+	global $latestPostId;
 	// Get image info from nextGen
 	$conn = connectToOldSQL();
 	$sql = "SELECT * FROM word_ngg_pictures WHERE(pid LIKE '".$id."')";
@@ -218,7 +220,7 @@ function importNextgenPic( $id ){
 		global $wpdb;
 		$result = $wpdb->get_results( "SELECT * FROM $wpdb->posts WHERE(guid LIKE '%{$row["filename"]}%') " );
 		if( sizeof($result) == 0 ){
-	    	$newId = importImage($file);					// INSERT IMAGE //////////
+	    	$newId = importImage($file, $latestPostId);					// INSERT IMAGE //////////
 		}
 		else{
 			$newId = $result[0]->ID;
@@ -263,23 +265,25 @@ function getShortcodeAttr($shortcode, $attr){
 
 
 
-
-
 function migration(){
 	echo "<br> <br> <br>--------------<br>";
 	echo "Start<br>";
 	echo "<br> <b>copyPosts<b> <br>--------------<br>";
 
+	
 	global $wpdb;
 	$conn = connectToOldSQL();
-	$sql = "SELECT * FROM word_posts WHERE(post_type LIKE 'post') ORDER BY ID";
+	$sql = "SELECT * FROM word_posts WHERE(post_type LIKE 'post') ORDER BY post_date";
 	$result = $conn->query($sql);
 	if ($result->num_rows > 0) {
 		$count = 0;
 		while ($row = $result->fetch_assoc()) {
+			echo '<br>'.$row['ID'] .'   '.$row['post_title'];
+		}
+		while ($row = $result->fetch_assoc()) {
 			// DEBUG
-			if( $count >= 2 )
-				break;
+			if( $count >= 0 )	break;
+			// if( $row['post_title'] != 'Truckfighters')	continue;
 
         	$count ++;
     		$newPost = array();
@@ -289,25 +293,41 @@ function migration(){
 			$content = $row['post_content'];
 
 
-			echo "<br><br><br><br><br><br>------------------------<br>";
+			echo "<br><br><br><br><br><br>".$count."  ------------------------<br>";
         	printf ("%s :: %s << %s >>", $row['ID'], $newPost['post_date'], $newPost['post_title']);
 			echo "<br><br>__before__<br>";
 			echo $content;
 			echo "<br><br>__after__<br>";
 
-			$content = nextgen2gallery($content);
-			$content = iframe2embed($content);
 			$newPost['post_content'] = $content;
 
 			echo ("<br><br><br>...Adding Post..<br>");
 			$newPostId = -1;
+			global $latestPostId;
 			$newPostId = wp_insert_post( $newPost );			// INSERT POST //////////
+			$latestPostId = $newPostId;
+
+			$content = nextgen2gallery($content);
+			$content = iframe2embed($content);
+			$latestPostId = 0;
 			echo $content;
+
+			$newPost['post_content'] = $content;
+			wp_update_post( $newPost );
+
+/*
 		    echo ("<br>...PostEnd......");
 		    echo ("<br><br>...Update post_parent......<br>");
-
 		    // Update post_parent to all images
+		    // $content = ' [gallery columns="1" link="none" size="large" ids="3069"] ';
+		    // $c1 = 
 		    $shortCodes = Parser::parse_shortcodes($content);
+		    // echo $content.'<br>';
+		    // echo '<br>=================================<br>';
+		    // echo sizeof($shortCodes) .'<br>';
+		    // echo $newPostId .'<br>';
+		    // print_r( $row);
+
 			for($i=0; $i<sizeof($shortCodes); $i++){
 				if( $shortCodes[$i]['name'] == 'gallery'){
 					// $idsStr = $shortCodes[$i]['attrs'][0]['ids'] ;
@@ -328,6 +348,7 @@ function migration(){
 					}
 				}
 			}
+*/
 	    }
 	    printf ("<br><br>Total post count: %s <br>", $count);
 	}

@@ -160,6 +160,7 @@ final class Parser {
         return $shortcodes;
     }
 
+
     private static function parse_attrs($attrs) {
         preg_match_all(self::ATTRIBUTE_REGEXP, $attrs, $matches, PREG_SET_ORDER);
         $attributes = array();

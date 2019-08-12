@@ -4,7 +4,7 @@
  * @version 1.0
  */
 /*
-Plugin Name: ch3-migrate
+Plugin Name: ch3 Migrate
 Plugin URI:
 Description: Scripts to help me migrate my old database.
 Author: Georgios Cherouvim
@@ -25,12 +25,16 @@ if ( !defined( 'ABSPATH' ) ) {
 include 'extract_tags.php';
 
 ini_set('max_execution_time', 60*60*10);
+ini_set( 'upload_max_size' , '64M' );
 
 add_action('admin_menu', 'ch3_migration_menu');
 
 function ch3_migration_menu(){
-    add_menu_page( 'Test Plugin Page', 'ch3 Migration', 'manage_options', 'test-plugin', 'migration' );
+    add_menu_page( 'ch3 Migration', 'ch3 Migration', 'manage_options', 'ch3-migration', 'ch3_migration' );
 }
+
+
+
 
 
 
@@ -155,41 +159,71 @@ function nextgen2gallery($content){
 
 
 
-
-
-
+// 
+// IMPORT IMAGE
 function importImage( $file, $latestPostId ){
-	// take a copy of the file
-	$dest = WP_CONTENT_DIR . '/uploads/' . basename( $file );
-	copy( $file, $dest );
-	$file = $dest;
 
-	// $filename should be the path to a file in the upload directory.
-	$parent_post_id = $latestPostId;
-	$filetype = wp_check_filetype( basename( $file ), null );
-	$wp_upload_dir = wp_upload_dir();
+//				DEBUG 
+	if( 0 ){
+		// take a copy of the file
+		// $dest = WP_CONTENT_DIR . '/file/' . basename( $file );
+		$dest = wp_normalize_path( wp_upload_dir()['basedir'] ."/". basename( $file ) );
+		// wp_upload_dir()['basedir']
+		 // $file = wp_normalize_path( wp_upload_dir()['basedir'] ."/". $size['file'] );
+		echo 'file :: '. $file .'<br>';
+		echo 'dest :: '. $dest .'<br>';
+		echo 'uplo :: '. wp_upload_dir()['url'] .'<br>';
+		echo 'uphi :: '. wp_upload_dir()['basedir'] .'<br>';
+		copy( $file, $dest );
+		$file = $dest;
 
-	$attachment = array(
-		'guid'           => $wp_upload_dir['url'] . '/' . basename( $file ), 
-		'post_mime_type' => $filetype['type'],
-		'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $file ) ),
-		'post_content'   => '',
-		'post_status'    => 'inherit'
-	);
+		// $filename should be the path to a file in the upload directory.
+		$parent_post_id = $latestPostId;
+		$filetype = wp_check_filetype( basename( $file ), null );
+		$wp_upload_dir = wp_upload_dir();
 
-	// $attach_id = wp_insert_attachment( $attachment, $file, $parent_post_id );
-	$attach_id = wp_insert_attachment( $attachment, $file );
-	// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
-	require_once( ABSPATH . 'wp-admin/includes/image.php' );
-	$attach_data = wp_generate_attachment_metadata( $attach_id, $file );
-	wp_update_attachment_metadata( $attach_id, $attach_data );
-	set_post_thumbnail( $parent_post_id, $attach_id );
+		$attachment = array(
+			'guid'           => $wp_upload_dir['url'] . '/' . basename( $file ), 
+			'post_mime_type' => $filetype['type'],
+			'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $file ) ),
+			'post_content'   => '',
+			'post_status'    => 'inherit'
+		);
 
-	echo '++  Import Image id:'.$attach_id.' added to WP__' .$file. '  ++<br>';
-	// print_r($attach_data);
-	return $attach_id;
+		// $attach_id = wp_insert_attachment( $attachment, $file, $parent_post_id );
+		$attach_id = wp_insert_attachment( $attachment, basename($file) );
+		// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
+		require_once( ABSPATH . 'wp-admin/includes/image.php' );
+		$attach_data = wp_generate_attachment_metadata( $attach_id, $file );
+		wp_update_attachment_metadata( $attach_id, $attach_data );
+		set_post_thumbnail( $parent_post_id, $attach_id );
+
+		echo '++  Import Image id:'.$attach_id.' added to WP__' .$file. '  ++<br>';
+
+		echo 'url  :: '. $attachment['guid'] .'<br>';
+		// print_r($attach_data);
+		return $attach_id;
+	}
+	else {
+
+
+
+
+
+		// THIS WILL JUST OUTPUT ALL THE FILE NAMES TO A TEXT FILE TO READ AND MANAGE VIA MF Expression Media
+		print( 'Writting file :'. $file .' to disk file <br>');
+		$myfile = fopen("D:/myStuff/My Pictures/MEM_imageSelection.txt", "a") or die("Unable to open file!");
+
+		$txt = basename($file) . "\n";
+		fwrite($myfile, $txt);
+
+		fclose($myfile);
+	}
+
 
 }
+
+
 
 
 
@@ -259,14 +293,13 @@ function getShortcodeAttr($shortcode, $attr){
 				return( $at['ids'] );
 		}
 	}
-	
 }
 
 
 
 
 
-function migration(){
+function ch3_migration(){
 	echo "<br> <br> <br>--------------<br>";
 	echo "Start<br>";
 	echo "<br> <b>copyPosts<b> <br>--------------<br>";
@@ -283,9 +316,9 @@ function migration(){
 		// }
 		while ($row = $result->fetch_assoc()) {
 			// DEBUG
-			// if( $count >= 0 )	break;
-			if( $row['post_title'] != 'Truckfighters' &&
-				$row['post_title'] != 'alosis')	continue;
+			// if( $count >= 10 )	break;
+			// if( $row['post_title'] != 'Truckfighters' &&
+			// 	$row['post_title'] != 'alosis')	continue;
 
         	$count ++;
     		$newPost = array();
@@ -324,6 +357,13 @@ function migration(){
 
 			// Update the content of the new post
 			$wpdb->query( $wpdb->prepare( "UPDATE $wpdb->posts SET post_content = %s WHERE ID = %d", $content, $newPostId ) );
+
+
+			// DEBUG
+			// DELETE POST
+			if(1){
+				wp_delete_post( $newPostId , 1);
+			}
 
 	    }
 	    printf ("<br><br>Total post count: %s <br>", $count);

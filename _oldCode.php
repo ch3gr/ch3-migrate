@@ -239,3 +239,51 @@ function getImageIDs($imageLog){
 
 	// print_r( array_column($sc, 0, 'ids') );
 	// print_r( getShortcodeAttr($sc, 'ids') );
+
+
+
+
+
+
+
+
+
+
+
+
+
+//			Attach images to postId
+	/*
+		    echo ("<br>...PostEnd......");
+		    echo ("<br><br>...Update post_parent......<br>");
+		    // Update post_parent to all images
+		    // $content = ' [gallery columns="1" link="none" size="large" ids="3069"] ';
+		    // $c1 = 
+		    $shortCodes = Parser::parse_shortcodes($content);
+		    // echo $content.'<br>';
+		    // echo '<br>=================================<br>';
+		    // echo sizeof($shortCodes) .'<br>';
+		    // echo $newPostId .'<br>';
+		    // print_r( $row);
+
+			for($i=0; $i<sizeof($shortCodes); $i++){
+				if( $shortCodes[$i]['name'] == 'gallery'){
+					// $idsStr = $shortCodes[$i]['attrs'][0]['ids'] ;
+					$idsStr = getShortcodeAttr($shortCodes[$i], 'ids');
+					$ids = explode(",", $idsStr);
+					foreach($ids as $id){
+						// Check if this picture has already been attached
+						$post_parent = $wpdb->get_results( "SELECT post_parent FROM $wpdb->posts WHERE(ID LIKE '{$id}') " )[0]->post_parent;
+						if($post_parent == '0'){
+							$img_post = array();
+							$img_post['ID'] = $id;
+							$img_post['post_parent'] = $newPostId;
+							wp_update_post( $img_post );
+							echo '<br> ... updated photo ID '. $id . ' to have post_parent set to '. $newPostId;
+						} else {
+							echo '<br> ... photo ID '. $id . ' is already attached. SKIPPING ';
+						}
+					}
+				}
+			}
+*/

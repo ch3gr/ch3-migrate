@@ -23,11 +23,34 @@ if ( !defined( 'ABSPATH' ) ) {
 
 
 include 'extract_tags.php';
+// include 'ch3-metadata.php';
 
 ini_set('max_execution_time', 60*60*10);
 ini_set( 'upload_max_size' , '64M' );
 
-add_action('admin_menu', 'ch3_migration_menu');
+
+
+
+
+
+//	FROM ch3-plugin.php
+$customDir = array();
+
+$customDir['uploads'] = 'file';
+$customDir['images'] = 'img';
+$customDir['intermediate'] = 'int';
+
+define('UPLOADS', $customDir['uploads']);
+
+$customDir['uploads_full'] = wp_normalize_path( wp_upload_dir()['path'] ) ;
+$customDir['images_full'] = $customDir['uploads_full'] . '/' . $customDir['images'];
+$customDir['intermediate_full'] = $customDir['images_full'] .'/' .$customDir['intermediate'];
+////////////////
+
+
+
+
+add_action('admin_menu', 'ch3_migration_menu', 2);
 
 function ch3_migration_menu(){
     add_menu_page( 'ch3 Migration', 'ch3 Migration', 'manage_options', 'ch3-migration', 'ch3_migration' );
@@ -159,52 +182,56 @@ function nextgen2gallery($content){
 
 
 
+
 // 
 // IMPORT IMAGE
 function importImage( $file, $latestPostId ){
 
 //				DEBUG 
-	if( 0 ){
+	if( 1 ){
+		global $customDir;
+		// print_ar( $customDir );
+		// print_ar( wp_upload_dir());
+
+
 		// take a copy of the file
-		// $dest = WP_CONTENT_DIR . '/file/' . basename( $file );
-		$dest = wp_normalize_path( wp_upload_dir()['basedir'] ."/". basename( $file ) );
-		// wp_upload_dir()['basedir']
-		 // $file = wp_normalize_path( wp_upload_dir()['basedir'] ."/". $size['file'] );
+		// $dest = wp_normalize_path( wp_upload_dir()['basedir'] ."/". basename( $file ) );
+		// $dest = wp_normalize_path( $customDir['images_full'] ."/". basename( $file ) );
+		$dest = $customDir['uploads_full'] ."/". basename( $file ) ;
+
+		echo '<br><br> Copying image ... <br>';
 		echo 'file :: '. $file .'<br>';
 		echo 'dest :: '. $dest .'<br>';
-		echo 'uplo :: '. wp_upload_dir()['url'] .'<br>';
-		echo 'uphi :: '. wp_upload_dir()['basedir'] .'<br>';
+		// echo 'uplo :: '. wp_upload_dir()['url'] .'<br>';
+		// echo 'uphi :: '. wp_upload_dir()['basedir'] .'<br>';
 		copy( $file, $dest );
 		$file = $dest;
-
+		
 		// $filename should be the path to a file in the upload directory.
 		$parent_post_id = $latestPostId;
 		$filetype = wp_check_filetype( basename( $file ), null );
-		$wp_upload_dir = wp_upload_dir();
 
 		$attachment = array(
-			'guid'           => $wp_upload_dir['url'] . '/' . basename( $file ), 
+			'guid'           => wp_upload_dir()['url'] . '/' . $customDir['upload'] . '/' . basename( $file ), 
 			'post_mime_type' => $filetype['type'],
 			'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $file ) ),
 			'post_content'   => '',
 			'post_status'    => 'inherit'
 		);
 
-		// $attach_id = wp_insert_attachment( $attachment, $file, $parent_post_id );
 		$attach_id = wp_insert_attachment( $attachment, basename($file) );
 		// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
 		require_once( ABSPATH . 'wp-admin/includes/image.php' );
+
 		$attach_data = wp_generate_attachment_metadata( $attach_id, $file );
 		wp_update_attachment_metadata( $attach_id, $attach_data );
 		set_post_thumbnail( $parent_post_id, $attach_id );
+		echo '++  Imported :: '. $file .' | ID ::' .$attach_id .'<br><br>';
 
-		echo '++  Import Image id:'.$attach_id.' added to WP__' .$file. '  ++<br>';
-
-		echo 'url  :: '. $attachment['guid'] .'<br>';
-		// print_r($attach_data);
 		return $attach_id;
 	}
 	else {
+
 
 
 
@@ -254,20 +281,19 @@ function importNextgenPic( $id ){
 	    // Check if the image already exist in the new database to prevent duplicates
 		global $wpdb;
 		$result = $wpdb->get_results( "SELECT * FROM $wpdb->posts WHERE(guid LIKE '%{$row["filename"]}%') " );
-		if( sizeof($result) == 0 ){
 	    	$newId = importImage($file, $latestPostId);					// INSERT IMAGE //////////
+		if( sizeof($result) == 0 ){
 		}
 		else{
 			$newId = $result[0]->ID;
-			echo '######### PICTURE '. $row["filename"] .' ALREADY EXISTS - SKIPPING ##############';
+			echo '######### PICTURE '. $row["filename"] .' ALREADY EXISTS - SKIPPING ############## <br><br>';
 		}
 
 
 
-
-        echo "pid: " . $row["pid"]. " - filename: " . $file. " _______ Post ID :". $postId . " # ". $galleryId ."<br>";
+        // echo "pid: " . $row["pid"]. " - filename: " . $file. " _______ Post ID :". $postId . " # ". $galleryId ."<br>";
 	} else {
-		echo '################# PICTURE '. $id .' WAS NOT FOUND IN NEXTGEN ####################';
+		echo '################# PICTURE '. $id .' WAS NOT FOUND IN NEXTGEN #################### <br><br>';
 	}
 
 
@@ -316,7 +342,7 @@ function ch3_migration(){
 		// }
 		while ($row = $result->fetch_assoc()) {
 			// DEBUG
-			// if( $count >= 10 )	break;
+			if( $count >= 1 )	break;
 			// if( $row['post_title'] != 'Truckfighters' &&
 			// 	$row['post_title'] != 'alosis')	continue;
 
@@ -341,10 +367,9 @@ function ch3_migration(){
         	printf ("%s :: %s << %s >>", $row['ID'], $newPost['post_date'], $newPost['post_title']);
 			echo "<br><br>__before__<br>";
 			echo $content;
-			echo "<br><br>__after__<br>";
+			echo "<br><br>__after __<br>";
+			echo ("...Adding Post..<br>");
 
-
-			echo ("<br><br><br>...Adding Post..<br>");
 			$newPostId = -1;
 			global $latestPostId;		// Hack for the images to get attached to the post via shortcode bottleneck
 			$newPostId = wp_insert_post( $newPost );			// INSERT POST //////////
@@ -361,7 +386,7 @@ function ch3_migration(){
 
 			// DEBUG
 			// DELETE POST
-			if(1){
+			if(0){
 				wp_delete_post( $newPostId , 1);
 			}
 

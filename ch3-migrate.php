@@ -50,15 +50,30 @@ $customDir['intermediate_full'] = $customDir['images_full'] .'/' .$customDir['in
 
 
 
+
+
+// Global array with all files in photo archive
+$glob = array();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 add_action('admin_menu', 'ch3_migration_menu', 2);
 
 function ch3_migration_menu(){
     add_menu_page( 'ch3 Migration', 'ch3 Migration', 'manage_options', 'ch3-migration', 'ch3_migration' );
 }
-
-
-
-
 
 
 
@@ -187,9 +202,12 @@ function nextgen2gallery($content){
 // IMPORT IMAGE
 function importImage( $file, $latestPostId ){
 
+
 //				DEBUG 
 	if( 1 ){
 		global $customDir;
+		global $glob;
+
 		// print_ar( $customDir );
 		// print_ar( wp_upload_dir());
 
@@ -199,7 +217,24 @@ function importImage( $file, $latestPostId ){
 		// $dest = wp_normalize_path( $customDir['images_full'] ."/". basename( $file ) );
 		$dest = $customDir['uploads_full'] ."/". basename( $file ) ;
 
-		echo '<br><br> Copying image ... <br>';
+		$path2 = 'D:/myStuff/ch3/web/v4.ch3.gr/__tmp/imgSrc';
+
+
+		$id = array_search_partial( $glob, basename($file));
+		if( $id >= 0 ) {
+		// if( file_exists($path2 .'/'. basename($file)) ) {
+			echo 'File exist in secondary path';
+			$file = $glob[$id];
+			// $file = $path2 .'/'. basename( $file );
+		}
+		elseif( file_exists( $file . '_backup')) {
+			// Use the backup version for full size
+			$file = $file . '_backup';
+		}
+
+
+
+		echo '<br> Copying image ... <br>';
 		echo 'file :: '. $file .'<br>';
 		echo 'dest :: '. $dest .'<br>';
 		// echo 'uplo :: '. wp_upload_dir()['url'] .'<br>';
@@ -254,6 +289,7 @@ function importImage( $file, $latestPostId ){
 
 
 
+// Check function above for source filename  ----^
 
 
 function importNextgenPic( $id ){
@@ -264,11 +300,14 @@ function importNextgenPic( $id ){
 	$sql = "SELECT * FROM word_ngg_pictures WHERE(pid LIKE '".$id."')";
 	$result = $conn->query($sql);
 	$path = 'D:/myStuff/ch3/web/v2.ch3.gr/file/';
+	
 	$newId = -1;
 	if ($result->num_rows > 0) {
 	    $row = $result->fetch_assoc();
 	    $file = $row["filename"];
 	    $postId = $row["post_id"];
+
+
 	    $galleryId = $row["galleryid"];
 	    if( $galleryId == 1 )
 	    	$file = $path . 'photo/'. $file;
@@ -281,8 +320,8 @@ function importNextgenPic( $id ){
 	    // Check if the image already exist in the new database to prevent duplicates
 		global $wpdb;
 		$result = $wpdb->get_results( "SELECT * FROM $wpdb->posts WHERE(guid LIKE '%{$row["filename"]}%') " );
-	    	$newId = importImage($file, $latestPostId);					// INSERT IMAGE //////////
 		if( sizeof($result) == 0 ){
+	    	$newId = importImage($file, $latestPostId);					// INSERT IMAGE //////////
 		}
 		else{
 			$newId = $result[0]->ID;
@@ -291,7 +330,6 @@ function importNextgenPic( $id ){
 
 
 
-        // echo "pid: " . $row["pid"]. " - filename: " . $file. " _______ Post ID :". $postId . " # ". $galleryId ."<br>";
 	} else {
 		echo '################# PICTURE '. $id .' WAS NOT FOUND IN NEXTGEN #################### <br><br>';
 	}
@@ -325,12 +363,30 @@ function getShortcodeAttr($shortcode, $attr){
 
 
 
+
+
+
+
+
 function ch3_migration(){
-	echo "<br> <br> <br>--------------<br>";
+	
+	global $glob;
+
+	date_default_timezone_set( date_default_timezone_get() );
 	echo "Start<br>";
-	echo "<br> <b>copyPosts<b> <br>--------------<br>";
+	echo "<br>--------------     TIME ::  ";
+	print( date("H:i:s") );
+	echo "<br> Loading all files in archive...   ";
+	$glob = glob("D:/myStuff/My Pictures/digi/*/*/*");
+	$glob = array_merge($glob, glob("D:/myStuff/My Pictures/film/*/*") );
+	$glob = array_merge($glob, glob("D:/myStuff/My Pictures/cg/*") );
+	echo "DONE ! <br>";
+	echo "<br><b>copyPosts<b> <br>--------------<br>";
 
 	
+
+
+
 	global $wpdb;
 	$conn = connectToOldSQL();
 	$sql = "SELECT * FROM word_posts WHERE(post_type LIKE 'post') ORDER BY post_date";
@@ -341,10 +397,13 @@ function ch3_migration(){
 		// 	echo '<br>'.$row['ID'] .'   '.$row['post_title'];
 		// }
 		while ($row = $result->fetch_assoc()) {
+			flush();
 			// DEBUG
-			if( $count >= 1 )	break;
-			// if( $row['post_title'] != 'Truckfighters' &&
-			// 	$row['post_title'] != 'alosis')	continue;
+			// if( $count >= 1 )	break;
+			// if( $row['post_title'] != 'Distorted faces' &&
+			// 	$row['post_title'] != 'Fighter - print')	continue;
+			if( $row['post_title'] != 'Fighter - print')	continue;
+			// if( $row['post_title'] != 'Distorted faces')	continue;
 
         	$count ++;
     		$newPost = array();
@@ -363,8 +422,10 @@ function ch3_migration(){
 			
 
 
-			echo "<br><br><br><br><br><br>".$count."  ------------------------<br>";
-        	printf ("%s :: %s << %s >>", $row['ID'], $newPost['post_date'], $newPost['post_title']);
+
+			echo "<br><br><br><br><br><br>".$count."  ------------------------  TIME ::  ";
+			print( date("H:i:s") );
+        	printf ("<br>%s :: %s << %s >>", $row['ID'], $newPost['post_date'], $newPost['post_title']);
 			echo "<br><br>__before__<br>";
 			echo $content;
 			echo "<br><br>__after __<br>";
@@ -400,6 +461,8 @@ function ch3_migration(){
 	$conn->close();
 	echo "<br>--------------<br>";
 	echo "<br>-- D O N E ---<br>";
+	echo 'TIME ::   ';
+	print( date("H:i:s") );
 }
 
 

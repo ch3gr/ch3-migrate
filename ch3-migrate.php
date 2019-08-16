@@ -368,6 +368,65 @@ function getShortcodeAttr($shortcode, $attr){
 
 
 
+function getTaxonomyFromDB( $oldPostId ){
+	// global $wpdb;
+	$conn = connectToOldSQL();
+
+	// array that holds an array of attributes for each term
+	$terms = array();
+
+	// Get terms
+	$sql = 'SELECT * FROM word_term_relationships WHERE object_id = '.$oldPostId;
+	$result = $conn->query($sql);
+	
+	while( $row = $result->fetch_assoc() ) {
+		$elem = array();
+		$elem['term_taxonomy_id'] = $row['term_taxonomy_id'];
+		$elem['term_order'] = $row['term_order'];
+		array_push( $terms, $elem );
+		// print_ar($row);
+	} 
+	// print_ar($terms);
+	// echo "<br> -- <br>";
+
+	// Redirect term_taxonomy_id -> term_id
+	foreach($terms as $key => $term) {
+		$term_taxonomy_id = $term['term_taxonomy_id'];
+		$sql = "SELECT * FROM word_term_taxonomy WHERE term_taxonomy_id = $term_taxonomy_id";
+		$result = $conn->query($sql);
+
+		while( $row = $result->fetch_assoc() ) {
+			$terms[$key]['term_id'] = $row['term_id'];
+			$terms[$key]['taxonomy'] = $row['taxonomy'];
+		}
+	}
+	// print_ar($terms);
+	// echo "<br> -- <br>";
+
+
+	// term_id -> name
+	foreach($terms as $key => $term) {
+		$term_id = $term['term_id'];
+		$sql = "SELECT * FROM word_terms WHERE term_id = $term_id";
+		$result = $conn->query($sql);
+
+		while( $row = $result->fetch_assoc() ) {
+			$terms[$key]['name'] = $row['name'];
+		}
+	}
+
+	$conn->close();
+	// print_ar($terms);
+	return $terms;
+}
+
+
+
+
+
+
+
+
 function ch3_migration(){
 	
 	global $glob;
@@ -385,13 +444,30 @@ function ch3_migration(){
 
 	
 
+	echo "<br>____ TEST ____ <br>";	
+	// print_ar( getTaxonomyFromDB( 500 ) );
+	// wp_set_post_terms( 1761, 'lakis_TAG', 'post_tag', 1 );
+	// wp_set_post_terms( 1761, 2, 'category', 1 );
+
+	// print_ar( term_exists( 'CAT_C', 'category') );
+
+	// $uncategorized_id = term_exists( 'uncategorized', 'category');
+	// // wp_remove_object_terms( 1778, $uncategorized_id['term_id'], 'category' );
+	// wp_remove_object_terms( 1778, 'uncategorized', 'category' );
+	// print("done");
+
+
+
+
 
 
 	global $wpdb;
 	$conn = connectToOldSQL();
 	$sql = "SELECT * FROM word_posts WHERE(post_type LIKE 'post') ORDER BY post_date";
 	$result = $conn->query($sql);
-	if ($result->num_rows > 0) {
+
+
+	if (1 && $result->num_rows > 0) {
 		$count = 0;
 		// while ($row = $result->fetch_assoc()) {
 		// 	echo '<br>'.$row['ID'] .'   '.$row['post_title'];
@@ -399,13 +475,18 @@ function ch3_migration(){
 		while ($row = $result->fetch_assoc()) {
 			flush();
 			// DEBUG
-			// if( $count >= 1 )	break;
+
+			// HOW MANY POSTS TO COPY
+			if( $count >= 2 )	break;
+
 			// if( $row['post_title'] != 'Distorted faces' &&
 			// 	$row['post_title'] != 'Fighter - print')	continue;
-			if( $row['post_title'] != 'Fighter - print')	continue;
+			// if( $row['post_title'] != 'Fighter - print')	continue;
 			// if( $row['post_title'] != 'Distorted faces')	continue;
 
-        	$count ++;
+
+
+
     		$newPost = array();
     		$newPost['post_title'] = $row['post_title'];
     		$newPost['post_date'] = $row['post_date'];
@@ -417,8 +498,13 @@ function ch3_migration(){
 			$content = str_replace('\'','min',$content);
 			$newPost['post_content'] = $content;
 
+			// Skip if post exists
+			if( post_exists($newPost['post_title']) != 0 ){
+				print( 'Post :: <b>'. $newPost['post_title'] .'</b>			EXISTS, so skipping -------  <br>');
+				continue;
+			}
 
-
+        	$count ++;
 			
 
 
@@ -444,6 +530,33 @@ function ch3_migration(){
 			// Update the content of the new post
 			$wpdb->query( $wpdb->prepare( "UPDATE $wpdb->posts SET post_content = %s WHERE ID = %d", $content, $newPostId ) );
 
+
+			//	Add taxonomy
+			print( '<br><br>Adding Taxonomy <br>');
+			$terms = getTaxonomyFromDB( $row['ID'] );
+			foreach( $terms as $term ){
+				// if( $term['taxonomy'] == 'category' || $term['taxonomy'] == 'post_tag')
+				// 	wp_set_post_terms( $newPostId, $term['name'], $term['taxonomy'], 1 );
+
+				// POST TAG
+				if( $term['taxonomy'] == 'post_tag'){
+					print('[TAG::'.$term['name'].']');
+					wp_set_post_terms( $newPostId, $term['name'], 'post_tag', 1 );
+				}
+				// POST CATEGORY
+				if( $term['taxonomy'] == 'category'){
+					print('[CAT::'.$term['name'].']');
+					$cat_id = term_exists( $term['name'], 'category');
+					if( !isset($cat_id) ){
+						$cat_id = wp_create_category( $term['name'] );
+						wp_set_post_terms( $newPostId, $cat_id, 'category', 1 );
+					}else
+						wp_set_post_terms( $newPostId, $cat_id['term_id'], 'category', 1 );
+
+				}
+			}
+			// Remove Uncategorized
+			wp_remove_object_terms( $newPostId, 'uncategorized', 'category' );
 
 			// DEBUG
 			// DELETE POST

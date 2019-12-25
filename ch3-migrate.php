@@ -29,6 +29,9 @@ ini_set('max_execution_time', 60*60*10);
 ini_set( 'upload_max_size' , '64M' );
 
 
+// 2560px large images auto resize. Was introduced @ v5.3
+// add_filter( 'big_image_size_threshold', '__return_false' );
+
 
 
 
@@ -67,13 +70,6 @@ $glob = array();
 
 
 
-
-
-add_action('admin_menu', 'ch3_migration_menu', 2);
-
-function ch3_migration_menu(){
-    add_menu_page( 'ch3 Migration', 'ch3 Migration', 'manage_options', 'ch3-migration', 'ch3_migration' );
-}
 
 
 
@@ -150,7 +146,8 @@ function singlepic_shortcode( $atts ) {
 	else {
 		$id = $atts['id'];
 		$newId = importNextgenPic(trim($id));
-		return '[gallery columns="1" link="none" size="large" ids="'. $newId .'"]';
+//		return '[gallery columns="1" link="none" size="large" ids="'. $newId .'"]';
+		return '[gallery ids="'. $newId .'"]';
 	}
 }
 
@@ -166,7 +163,8 @@ function multipic_shortcode( $atts ) {
 		}
 		$newIds = substr($newIds, 0, -1);
 
-		return '[gallery columns="1" link="none" size="large" ids="'. $newIds .'"]';
+		return '[gallery ids="'. $newIds .'"]';
+		// return '[gallery columns="1" link="none" size="large" ids="'. $newIds .'"]';
 		// return '[gallery ids="'. $atts['ids'] .'"]';
 		//"422, 423, 424
 }
@@ -200,9 +198,9 @@ function nextgen2gallery($content){
 
 // 
 // IMPORT IMAGE
-function importImage( $file, $latestPostId ){
+function importImage( $file ){
 
-
+global $latestPostId;
 //				DEBUG 
 	if( 1 ){
 		global $customDir;
@@ -217,15 +215,11 @@ function importImage( $file, $latestPostId ){
 		// $dest = wp_normalize_path( $customDir['images_full'] ."/". basename( $file ) );
 		$dest = $customDir['uploads_full'] ."/". basename( $file ) ;
 
-		$path2 = 'D:/myStuff/ch3/web/v4.ch3.gr/__tmp/imgSrc';
-
 
 		$id = array_search_partial( $glob, basename($file));
 		if( $id >= 0 ) {
-		// if( file_exists($path2 .'/'. basename($file)) ) {
 			echo 'File exist in secondary path';
 			$file = $glob[$id];
-			// $file = $path2 .'/'. basename( $file );
 		}
 		elseif( file_exists( $file . '_backup')) {
 			// Use the backup version for full size
@@ -234,13 +228,13 @@ function importImage( $file, $latestPostId ){
 
 
 
+		copy( $file, $dest );
+		$file = $dest;
 		echo '<br> Copying image ... <br>';
 		echo 'file :: '. $file .'<br>';
 		echo 'dest :: '. $dest .'<br>';
 		// echo 'uplo :: '. wp_upload_dir()['url'] .'<br>';
 		// echo 'uphi :: '. wp_upload_dir()['basedir'] .'<br>';
-		copy( $file, $dest );
-		$file = $dest;
 		
 		// $filename should be the path to a file in the upload directory.
 		$parent_post_id = $latestPostId;
@@ -254,7 +248,7 @@ function importImage( $file, $latestPostId ){
 			'post_status'    => 'inherit'
 		);
 
-		$attach_id = wp_insert_attachment( $attachment, basename($file) );
+		$attach_id = wp_insert_attachment( $attachment, basename($file), $parent_post_id );
 		// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
 		require_once( ABSPATH . 'wp-admin/includes/image.php' );
 
@@ -294,7 +288,6 @@ function importImage( $file, $latestPostId ){
 
 function importNextgenPic( $id ){
 
-	global $latestPostId;
 	// Get image info from nextGen
 	$conn = connectToOldSQL();
 	$sql = "SELECT * FROM word_ngg_pictures WHERE(pid LIKE '".$id."')";
@@ -321,7 +314,7 @@ function importNextgenPic( $id ){
 		global $wpdb;
 		$result = $wpdb->get_results( "SELECT * FROM $wpdb->posts WHERE(guid LIKE '%{$row["filename"]}%') " );
 		if( sizeof($result) == 0 ){
-	    	$newId = importImage($file, $latestPostId);					// INSERT IMAGE //////////
+	    	$newId = importImage($file);					// INSERT IMAGE //////////
 		}
 		else{
 			$newId = $result[0]->ID;
@@ -426,6 +419,16 @@ function getTaxonomyFromDB( $oldPostId ){
 
 
 
+add_action('admin_menu', 'ch3_migration_menu', 2);
+
+function ch3_migration_menu(){
+    add_menu_page( 'ch3 Migration', 'ch3 Migration', 'manage_options', 'ch3-migration', 'ch3_migration' );
+}
+
+
+
+
+
 
 function ch3_migration(){
 	
@@ -457,8 +460,19 @@ function ch3_migration(){
 	// print("done");
 
 
+// wp_upload_dir()['url'] . '/' . $customDir['upload'] . '/' . basename( $file ), 
+	// echo $customDir['upload'];
+	// echo $customDir['images'];
+	// echo "----";
+// $customDir['uploads'] = 'file';
+// $customDir['images'] = 'img';
+// $customDir['intermediate'] = 'int';
 
+// define('UPLOADS', $customDir['uploads']);
 
+// $customDir['uploads_full'] = wp_normalize_path( wp_upload_dir()['path'] ) ;
+// $customDir['images_full'] = $customDir['uploads_full'] . '/' . $customDir['images'];
+// $customDir['intermediate_full'] = $customDir['images_full'] .'/' .$customDir['intermediate'];
 
 
 	global $wpdb;
@@ -477,12 +491,14 @@ function ch3_migration(){
 			// DEBUG
 
 			// HOW MANY POSTS TO COPY
-			if( $count >= 2 )	break;
+			// if( $count >= 100 )	break;
 
 			// if( $row['post_title'] != 'Distorted faces' &&
-			// 	$row['post_title'] != 'Fighter - print')	continue;
 			// if( $row['post_title'] != 'Fighter - print')	continue;
 			// if( $row['post_title'] != 'Distorted faces')	continue;
+			// if( $row['post_title'] != 'Mykonos')	continue;
+			// if( $row['post_title'] != 'Rhino')	continue;
+			
 
 
 
@@ -521,6 +537,7 @@ function ch3_migration(){
 			global $latestPostId;		// Hack for the images to get attached to the post via shortcode bottleneck
 			$newPostId = wp_insert_post( $newPost );			// INSERT POST //////////
 			$latestPostId = $newPostId;
+
 
 			$content = nextgen2gallery($content);
 			$content = iframe2embed($content);

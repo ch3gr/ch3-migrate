@@ -56,7 +56,8 @@ $customDir['intermediate_full'] = $customDir['images_full'] .'/' .$customDir['in
 
 
 // Global array with all files in photo archive
-$glob = array();
+$glob1 = array();		// primary location
+$glob1low = array();	// primary location in lowercase
 
 
 
@@ -71,6 +72,22 @@ $glob = array();
 
 
 
+
+function connectToNewSQL(){
+	$servername = "localhost";
+	$username = "georgios";
+	$password = "123";
+	$dbname = "v4_ch3_gr";
+
+	// Create connection
+	$conn = new mysqli($servername, $username, $password, $dbname);
+	// Check connection
+	if ($conn->connect_error) {
+	    die("Connection failed: " . $conn->connect_error);
+	}
+	mysqli_set_charset($conn,"utf8");
+	return $conn;
+}
 
 
 
@@ -200,41 +217,43 @@ function nextgen2gallery($content){
 // IMPORT IMAGE
 function importImage( $file ){
 
-global $latestPostId;
+	global $latestPostId;
 //				DEBUG 
 	if( 1 ){
 		global $customDir;
-		global $glob;
+		global $glob1;		// primary location
+		global $glob1low;	// primary location in lowercase
 
-		// print_ar( $customDir );
-		// print_ar( wp_upload_dir());
+		// Destination file for the copy command
+		$dest = $customDir['uploads_full'] ."/". basename( $file ) ;
+
+		// Locate file
+		// incoming file already points to v2.uploads
+		// $file = D:/myStuff/ch3/web/v2.ch3.gr/file/image/ch3_0308_skolix2.jpg
+		$msg = "From upload <br>" ;
+
+
+		// Look into the general archive, and use that if found
+		$id1 = array_search_partial( $glob1low, strtolower(basename($file)));
+		if( $id1 != -1 ) {
+
+			$file = $glob1[$id1];
+			$msg = "From archive <br>";
+		}
+		// Otherwise see if there is a backup file (large enough) - Use that
+		elseif( is_file($file."_backup") ){
+			$file = $file."_backup";
+			$msg = "From backup <br>" ;
+		}
 
 
 		// take a copy of the file
-		// $dest = wp_normalize_path( wp_upload_dir()['basedir'] ."/". basename( $file ) );
-		// $dest = wp_normalize_path( $customDir['images_full'] ."/". basename( $file ) );
-		$dest = $customDir['uploads_full'] ."/". basename( $file ) ;
-
-
-		$id = array_search_partial( $glob, basename($file));
-		if( $id >= 0 ) {
-			$file = $glob[$id];
-		}
-		elseif( file_exists( $file . '_backup')) {
-			echo 'File not found, using _backup';
-			// Use the backup version for full size
-			$file = $file . '_backup';
-		}
-
-
-
 		copy( $file, $dest );
-		$file = $dest;
-		echo '<br> Copying image ... <br>';
+		echo '<br> Copying image ... ' . $msg;
 		echo 'file :: '. $file .'<br>';
 		echo 'dest :: '. $dest .'<br>';
-		// echo 'uplo :: '. wp_upload_dir()['url'] .'<br>';
-		// echo 'uphi :: '. wp_upload_dir()['basedir'] .'<br>';
+		$file = $dest;
+		
 		
 		// $filename should be the path to a file in the upload directory.
 		$parent_post_id = $latestPostId;
@@ -275,8 +294,7 @@ global $latestPostId;
 
 		fclose($myfile);
 	}
-
-
+	flush();
 }
 
 
@@ -439,9 +457,90 @@ function ch3_migration_menu(){
 
 
 
+
+
+
+function printCollectionIds($collectionName){
+	global $wpdb;
+	$connOld = connectToOldSQL();
+	$connNew = connectToNewSQL();
+
+	// $sql = "SELECT * FROM word_ngg_pictures";
+	$sql = "SELECT * FROM word_ngg_collection where name= '$collectionName'";
+	$result = $connOld->query($sql);
+	$id = -1;
+	if ( $result->num_rows > 0) {
+		while ($row = $result->fetch_assoc()) {
+			$id = $row['cid'];
+			// echo "Id :: ".$row['slug'] ."<br>";
+		}
+	}
+
+	$sql = "SELECT * FROM word_ngg_references where collectionid= $id ORDER BY sortorder ASC";
+	$result = $connOld->query($sql);
+	$pids = array();
+	if ( $result->num_rows > 0) {
+		while ($row = $result->fetch_assoc()) {
+			array_push($pids, $row['pid']);
+		}
+	}
+	// print_ar($pids);
+
+	$files = array();
+	
+	$shortcode = '[gallery type="posts" ids="';
+
+	foreach ($pids as $key => $value) {
+		$sql = "SELECT * FROM word_ngg_pictures where pid= $value";
+		$result = $connOld->query($sql);
+		while ($row = $result->fetch_assoc()) {
+			$filename = $row['filename'];
+			array_push($files, $filename);
+			// echo $filename ;
+			// echo "<br>";
+		}
+
+
+		$sql = "SELECT * FROM wp_posts where guid LIKE '%$filename%'";
+		$result = $connNew->query($sql);
+		// print_ar($result);
+		while ($row = $result->fetch_assoc()) {
+			$shortcode .= $row['ID'] .', ';
+
+			// echo $row['ID'] .' ';
+			
+		}
+
+	}
+
+	echo '<br><br>';
+	echo $collectionName .'<br>';
+	$shortcode = substr($shortcode,0,-2).'"]';
+	echo $shortcode;
+	// print_ar($files);
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 function ch3_migration(){
 	
-	global $glob;
+	global $glob1;		// primary location
+	global $glob1low;	// primary location in lowercase
+
 
 	date_default_timezone_set( date_default_timezone_get() );
 	echo "Start<br>";
@@ -450,17 +549,19 @@ function ch3_migration(){
 
 
 	echo "<br> Loading all files in archive...   ";
-	$glob = rglob("D:/myStuff/My Pictures/digi/*");
-	$glob = array_merge($glob, rglob("D:/myStuff/My Pictures/film/*") );
-	$glob = array_merge($glob, rglob("D:/myStuff/My Pictures/cg/*") );
-	$glob = array_merge($glob, rglob("D:/myStuff/My Pictures/scanner/*") );
+	$glob1 = rglob("D:/myStuff/My Pictures/digi/*");
+	$glob1 = array_merge($glob1, rglob("D:/myStuff/My Pictures/film/*") );
+	$glob1 = array_merge($glob1, rglob("D:/myStuff/My Pictures/cg/*") );
+	$glob1 = array_merge($glob1, rglob("D:/myStuff/My Pictures/scanner/*") );
+	
+	$glob1low = array();
+	foreach ($glob1 as $key => $value) {
+			$glob1low[$key] = strtolower($value);
+	}
 
-	// $globLow = array();
-	// foreach ($glob as $key => $value) {
-	// 		$globLow[$key] = strtolower($value);
-	// 	}	
 
-	echo "DONE ! <br>";
+	echo "Listing directories :: DONE ! <br>";
+
 
 
 	echo "<br><b>copyPosts<b> <br>--------------<br>";
@@ -511,7 +612,7 @@ function ch3_migration(){
 			// DEBUG
 
 			// HOW MANY POSTS TO COPY
-			if( $count >= 5 )	break;
+			if( $count >= 100 )	break;
 
 			// if( $row['post_title'] != 'Distorted faces' &&
 			// if( $row['post_title'] != 'Fighter - print')	continue;
@@ -600,6 +701,7 @@ function ch3_migration(){
 			if(0){
 				wp_delete_post( $newPostId , 1);
 			}
+			flush();
 
 	    }
 	    printf ("<br><br>Total post count: %s <br>", $count);

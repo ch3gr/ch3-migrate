@@ -218,10 +218,10 @@ global $latestPostId;
 
 		$id = array_search_partial( $glob, basename($file));
 		if( $id >= 0 ) {
-			echo 'File exist in secondary path';
 			$file = $glob[$id];
 		}
 		elseif( file_exists( $file . '_backup')) {
+			echo 'File not found, using _backup';
 			// Use the backup version for full size
 			$file = $file . '_backup';
 		}
@@ -255,7 +255,7 @@ global $latestPostId;
 		$attach_data = wp_generate_attachment_metadata( $attach_id, $file );
 		wp_update_attachment_metadata( $attach_id, $attach_data );
 		set_post_thumbnail( $parent_post_id, $attach_id );
-		echo '++  Imported :: '. $file .' | ID ::' .$attach_id .'<br><br>';
+		echo ' <<  Imported :: '. $file .' | ID ::' .$attach_id .'<br><br>';
 
 		return $attach_id;
 	}
@@ -417,6 +417,15 @@ function getTaxonomyFromDB( $oldPostId ){
 
 
 
+function rglob($pattern, $flags = 0) {
+    $files = glob($pattern, $flags); 
+    foreach (glob(dirname($pattern).'/*', GLOB_ONLYDIR|GLOB_NOSORT) as $dir) {
+        $files = array_merge($files, rglob($dir.'/'.basename($pattern), $flags));
+    }
+    return $files;
+}
+
+
 
 
 add_action('admin_menu', 'ch3_migration_menu', 2);
@@ -438,11 +447,22 @@ function ch3_migration(){
 	echo "Start<br>";
 	echo "<br>--------------     TIME ::  ";
 	print( date("H:i:s") );
+
+
 	echo "<br> Loading all files in archive...   ";
-	$glob = glob("D:/myStuff/My Pictures/digi/*/*/*");
-	$glob = array_merge($glob, glob("D:/myStuff/My Pictures/film/*/*") );
-	$glob = array_merge($glob, glob("D:/myStuff/My Pictures/cg/*") );
+	$glob = rglob("D:/myStuff/My Pictures/digi/*");
+	$glob = array_merge($glob, rglob("D:/myStuff/My Pictures/film/*") );
+	$glob = array_merge($glob, rglob("D:/myStuff/My Pictures/cg/*") );
+	$glob = array_merge($glob, rglob("D:/myStuff/My Pictures/scanner/*") );
+
+	// $globLow = array();
+	// foreach ($glob as $key => $value) {
+	// 		$globLow[$key] = strtolower($value);
+	// 	}	
+
 	echo "DONE ! <br>";
+
+
 	echo "<br><b>copyPosts<b> <br>--------------<br>";
 
 	
@@ -491,7 +511,7 @@ function ch3_migration(){
 			// DEBUG
 
 			// HOW MANY POSTS TO COPY
-			// if( $count >= 100 )	break;
+			if( $count >= 5 )	break;
 
 			// if( $row['post_title'] != 'Distorted faces' &&
 			// if( $row['post_title'] != 'Fighter - print')	continue;

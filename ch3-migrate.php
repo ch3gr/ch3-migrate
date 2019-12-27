@@ -612,13 +612,14 @@ function ch3_migration(){
 			// DEBUG
 
 			// HOW MANY POSTS TO COPY
-			if( $count >= 100 )	break;
+			// if( $count >= 100 )	break;
 
 			// if( $row['post_title'] != 'Distorted faces' &&
 			// if( $row['post_title'] != 'Fighter - print')	continue;
 			// if( $row['post_title'] != 'Distorted faces')	continue;
 			// if( $row['post_title'] != 'Mykonos')	continue;
 			// if( $row['post_title'] != 'Rhino')	continue;
+			if( $row['post_title'] != 'Nokia Harmony')	continue;
 			
 
 
